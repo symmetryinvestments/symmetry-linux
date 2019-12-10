@@ -3,6 +3,7 @@ import symmetry.linux.sildoc;
 
 version(Posix):
 
+
 extern(C) @nogc nothrow
 {
     import std.conv : to;
@@ -124,6 +125,29 @@ CloneFlag[] cloneFlagsFromPosix(int flags)
 	return ret;
 }
 
+string[] cloneFlags()
+{
+    import std.traits : EnumMembers;
+    import std.conv : to;
+    import std.array: Appender;
+    Appender!(string[]) ret;
+    static foreach(E;EnumMembers!CloneFlag)
+        ret.put(E.to!string);
+    return ret.data;
+}
+
+CloneFlag cloneFlag(string flagName)
+{
+    import std.traits : EnumMembers;
+    import std.conv : to;
+    static foreach(E;EnumMembers!CloneFlag)
+    {
+        if (E.to!string == flagName)
+            return E;
+    }
+    throw new Exception ("unknown clone flag: " ~flagName);
+}
+
 int posixCloneFlags(CloneFlag[] cloneFlags)
 {
 	import std.conv : to;
@@ -154,5 +178,4 @@ void setNamespace_(string path, int flags)
 	auto fd = fdopen(path, O_RDONLY);
 	setns(fd,flags);
 }
-
 
