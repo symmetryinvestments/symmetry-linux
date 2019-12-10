@@ -1,0 +1,6 @@
+name "symmetry-linux"
+description "Linux declarations missing from druntime"
+authors "Laeeth Isharc"
+copyright "Copyright © 2019, Laeeth Isharc"
+license "MIT"
+targetType "library"
