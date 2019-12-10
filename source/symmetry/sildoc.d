@@ -1,5 +1,4 @@
-module symmetry.linux.sildoc;
-version(Posix):
+module symmetry.sildoc;
 
 version(SILdoc) {} else
 {

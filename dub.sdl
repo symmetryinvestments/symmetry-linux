@@ -5,3 +5,12 @@ copyright "Copyright © 2019, Laeeth Isharc"
 license "MIT"
 targetType "library"
 
+configuration "default" {
+}
+
+configuration "pivot-root" {
+	dependency "syscall-d" version="~>0.4.0" platform = "posix"
+	versions "PivotRoot"
+}
+
+

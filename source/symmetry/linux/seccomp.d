@@ -1,7 +1,7 @@
 module symmetry.linux.seccomp;
 version(Posix):
 
-import symmetry.linux.sildoc;
+import symmetry.sildoc;
 
 import std.conv : to;
 

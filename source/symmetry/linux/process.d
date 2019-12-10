@@ -1,5 +1,5 @@
 module symmetry.linux.process;
-import symmetry.linux.sildoc;
+import symmetry.sildoc;
 
 version(Posix):
 
@@ -9,9 +9,6 @@ extern(C) @nogc nothrow
     import std.conv : to;
 	int clone(int function(void*), void* child_stack, int flags, void* arg, ...);
 	int unshare(int flags) @trusted;
-	int setns(int fd, int nstype);
-	int sethostname(const(char)* name, size_t len);
-	int prctl(int option, ulong arg2, ulong arg3, ulong arg4, ulong arg5);
 
 	enum CLONE_VM = 		0x100;
 	enum CLONE_FS = 		0x200;
@@ -159,23 +156,4 @@ int posixCloneFlags(CloneFlag[] cloneFlags)
 	return i;
 }
 
-
-void setNamespace(string path, CloneFlag[] cloneFlags)
-{
-	import core.sys.posix.fcntl: O_RDONLY;
-	if (path.length ==0)
-		return;
-	auto flags = posixCloneFlags(cloneFlags);
-	setNamespace_(path,flags);
-}
-
-void setNamespace_(string path, int flags)
-{
-	import symmetry.linux.file : fdopen;
-	import core.sys.posix.fcntl: O_RDONLY;
-	if (path.length ==0)
-		return;
-	auto fd = fdopen(path, O_RDONLY);
-	setns(fd,flags);
-}
 

@@ -1,7 +1,7 @@
 module symmetry.linux.capabilities;
 import core.sys.posix.sys.capabilities;
 import core.sys.linux.sys.capability;
-import symmetry.linux.sildoc;
+import symmetry.sildoc;
 
 version(Posix):
 
