@@ -28,3 +28,9 @@ string randomMinor()
 	].choice(rnd);
 	return ret;
 }
+
+string randomName()
+{
+	import std.format : format;
+	return format!"%s-%"(randomMajor(), randomMinor());
+}
