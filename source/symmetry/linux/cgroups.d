@@ -5,6 +5,19 @@ version(Posix):
 
 import symmetry.linux.file : fdopen, fdclose;
 
+struct CGroupSetting
+{
+	string name;
+	string value;
+}
+
+alias CGroupSettings = CGroupSetting[];
+alias CGroups = CGroupSettings[string];
+
+enum CGroupSetting addToTasks = {
+	name: "tasks",
+};
+
 struct ChildConfig
 {
 	int fd;
@@ -12,57 +25,40 @@ struct ChildConfig
 	string hostname;
 	int uid;
 	int gid;
+	CGroups cGroups;
+	int rlimitMax = 64;
+	int rlimitCur = 64;
 }
-
-
 
 enum MEMORY = "1073741824";
 enum SHARES = "256";
 enum PIDS = "64";
 enum WEIGHT = "10";
-enum FD_COUNT = 64;
 
-struct CGroupSetting
-{
-	string name;
-	string value;
-}
-
-struct CGroupControl
-{
-	string control;
-	CGroupSetting[] settings;
-}
-
-enum CGroupSetting addToTasks = {
-	name: "tasks",
-};
-
-
-CGroupControl[] cGroups = [
-	CGroupControl("memory", [
-					CGroupSetting("memory.limit_in_bytes",MEMORY),
+CGroups defaultCGroups = [
+	"memory":	[		CGroupSetting("memory.limit_in_bytes",MEMORY),
 					CGroupSetting("memory.kmem.limit_in_bytes",MEMORY),
 					addToTasks,
-	]),
+			],
 
-	CGroupControl("cpu", [
+	"cpu":		[
 					CGroupSetting("cpu.shares",SHARES),
 					addToTasks,
-	]),
+			],
 	
-	CGroupControl("pids", [
+	"pids":		[
 					CGroupSetting("pids.max",PIDS),
 					addToTasks,
-	]),
+			],
 
-	CGroupControl("blkio", [
+	"blkio":	[
 					CGroupSetting("blkio.weight",PIDS),
 					addToTasks,
-	]),
+			],
 ];
 
-void resources(ChildConfig config)
+
+void setCGroups(in ChildConfig config)
 {
 	import std.stdio: stderr,writeln,writefln;
 	import std.exception : enforce;
@@ -73,35 +69,37 @@ void resources(ChildConfig config)
 	import core.sys.posix.sys.resource: setrlimit, rlimit, RLIMIT_NOFILE;
 	import std.string : fromStringz, toStringz;
 
-	stderr.writeln("=> setting cgroups...");
+	version(Trace) stderr.writeln("=> setting cgroups...");
 
-	foreach(cGroup; cGroups)
+	foreach(cGroup; cGroups.byKeyValue)
 	{
-		stderr.writefln("%s...", cGroup.control);
-		string dir = format!"/sys/fs/cgroup/%s/%s"(cGroup.control, config.hostname);
+		version(Trace) stderr.writefln("%s...", cGroup.key);
+		string dir = format!"/sys/fs/cgroup/%s/%s"(cGroup.key, config.hostname);
 		mkdir(dir); // FIXME , S_IRUSR | S_IWUSR | S_IXUSR);
 
-		foreach(cGroupSetting; cGroup.settings)
+		foreach(cGroupSetting; cGroup.value)
 		{
 			auto path = format!"%s/%s"(dir,cGroupSetting.name);
 			auto fd = fdopen(path,O_WRONLY);
 			enforce(fd !=-1, format!"opening %s failed"(path));
-			auto result = write(fd, cGroupSetting.value.toStringz,cGroupSetting.value.length);
-			enforce(result != -1,format!"writing to %s failed"(path));
-			close(fd);
+			{
+				scope(exit) close(fd);
+				auto result = write(fd, cGroupSetting.value.toStringz,cGroupSetting.value.length);
+				enforce(result != -1,format!"writing to %s failed"(path));
+			}
 		}
 	}
-	stderr.writeln("done.");
-	stderr.writeln("=> setting rlimit...");
+	version(Trace) stderr.writeln("done.");
+	version(Trace) stderr.writeln("=> setting rlimit...");
 	rlimit lim = {
-		rlim_max: FD_COUNT,
-		rlim_cur: FD_COUNT,
+		rlim_max: config.rlimitMax,
+		rlim_cur: config.rlimitCur,
 	};
 	enforce(!setrlimit(RLIMIT_NOFILE, &lim), format!"failed");
-	stderr.writeln("done");
+	version(Trace) stderr.writeln("done");
 }
 
-void freeResources(ChildConfig config)
+void freeCGroups(in ChildConfig config)
 {
 	import std.exception : enforce;
 	import std.string : fromStringz, toStringz;
@@ -110,20 +108,21 @@ void freeResources(ChildConfig config)
 	import core.sys.posix.unistd : write, close;
 	import core.sys.posix.fcntl: open, O_WRONLY;
 	import std.file: rmdir;
-	stderr.writeln("=> cleaning cgroups...");
-	foreach(cGroup; cGroups)
+	version(Trace) stderr.writeln("=> cleaning cgroups...");
+	foreach(cGroup; cGroups.byKeyValue)
 	{
 		int task_fd = 0;
-		string dir = format!"/sys/fs/cgroup/%s/%s"(cGroup.control,config.hostname);
-		string task = format!"/sys/fs/cgroup/%s/tasks"(cGroup.control);
+		string dir = format!"/sys/fs/cgroup/%s/%s"(cGroup.key,config.hostname);
+		string task = format!"/sys/fs/cgroup/%s/tasks"(cGroup.key);
 		task_fd = open(task.toStringz, O_WRONLY);
 		enforce(task_fd !=-1, format!"opening %s failed:"(task));
-		scope(failure)
-			close(task_fd);
-		auto result = write(task_fd, "0".ptr, 2);
-		enforce(result !=-1, format!"writing to %s failed"(task));
-		close(task_fd);
+		{
+			scope(exit)
+				close(task_fd);
+			auto result = write(task_fd, "0".ptr, 2);
+			enforce(result !=-1, format!"writing to %s failed"(task));
+		}
 		rmdir(dir);
 	}
-	stderr.writeln("done");
+	version(Trace) stderr.writeln("freeResources done");
 }
