@@ -1,4 +1,4 @@
-version(None):
+
 
 
         import core.stdc.config;
@@ -19637,9 +19637,13 @@ void addattr_l(nlmsghdr* n, int maxlen, ushort type, const void* data, ushort da
 {
  import std.exception : enforce;
  import std.format : format;
+ import core.stdc.string : memcpy;
 
-    ushort attr_len = ( ( ( ( ( rtattr ) .sizeof ) + 4U - 1 ) & ~ ( 4U - 1 ) ) + ( datalen ) );
-    uint newlen = ( ( ( n.nlmsg_len ) + 4U - 1 ) & ~ ( 4U - 1 ) ) + ( ( ( attr_len ) + 4U - 1 ) & ~ ( 4U - 1 ) );
+
+    ushort attr_len = cast(ushort)(( ( rtattr.sizeof + 4U - 1 ) & ~ ( 4U - 1 ) ) + datalen);
+
+    uint newlen = (( n.nlmsg_len + 4U - 1 ) & ~ (4U - 1) ) + ( ( attr_len + 4U - 1 ) & ~ ( 4U - 1 ));
+
     enforce(newlen <= maxlen, format!"cannot add attribute. size (%d) exceeded maxlen (%d)\n"
             (newlen, maxlen));
 
@@ -19663,28 +19667,31 @@ rtattr* addattr_nest(nlmsghdr* n, int maxlen, ushort type)
 
 void addattr_nest_end(nlmsghdr *n, rtattr *nest)
 {
-    nest.rta_len = cast(void *)NLMSG_TAIL(n) - cast(void *)nest;
+    nest.rta_len = cast(ushort)(cast(void *)NLMSG_TAIL(n) - cast(void *)nest);
 }
 
 
-auto readResponse(int fd, msghdr* msg)
+auto readResponse(int fd, msghdr* msg, char* response)
 {
+ import core.stdc.string : strerror;
  import std.exception : enforce;
  import std.string : fromStringz;
-    iovec *iov = msg.msg_iov;
-    iov.iov_base = *response;
+
+    iovec* iov = msg.msg_iov;
+    iov.iov_base = cast(void*) *response;
     iov.iov_len = MAX_PAYLOAD;
 
     ptrdiff_t resp_len = recvmsg(fd, msg, 0);
 /+
     enforce(resp_len != 0, "EOF on netlink");
- enforce(resp_len > 0, format!"netlink receive error: %s(%s)"(strerr(( * __errno_location ( ) ))fromStringz,( * __errno_location ( ) )));
+ enforce(resp_len > 0, format!"netlink receive error: %s(%s)"(strerr(( * __errno_location ( ) )).fromStringz,( * __errno_location ( ) )));
 +/
     return resp_len;
 }
 
 void checkResponse(int sock_fd)
 {
+ import core.stdc.string : strerror;
  import std.exception : enforce;
  import std.string : fromStringz;
  import std.exception : enforce;
@@ -19704,7 +19711,7 @@ void checkResponse(int sock_fd)
 
     nlmsghdr *hdr = cast (nlmsghdr*) resp;
     int nlmsglen = hdr.nlmsg_len;
-    int datalen = nlmsglen - sizeof(*hdr);
+    int datalen = cast(int)(nlmsglen - (*hdr).sizeof);
 
 
     if (datalen < 0 || nlmsglen > resp_len) {
@@ -19721,7 +19728,7 @@ void checkResponse(int sock_fd)
 
         if(err.error) {
             ( * __errno_location ( ) ) = -err.error;
-            enforce(false,format!"RTNETLINK: %s"(strerr(( * __errno_location ( ) )),( * __errno_location ( ) )));
+            enforce(false,format!"RTNETLINK: %s(%s)"(strerror(( * __errno_location ( ) )).fromStringz,( * __errno_location ( ) )));
         }
     }
 
@@ -19731,17 +19738,19 @@ void checkResponse(int sock_fd)
 /+
 int createSocket(int domain, int type, int protocol)
 {
+ import core.stdc.string : strerror;
  import std.string : fromStringz;
  import std.exception : enforce;
 
     int sock_fd = socket(domain, type, protocol);
-    enforce(sock_fd >= 0, format!"cannot open socket: %s(%s)"(strerr(( * __errno_location ( ) )).fromStringz,( * __errno_location ( ) )));
+    enforce(sock_fd >= 0, format!"cannot open socket: %s(%s)"(strerror(( * __errno_location ( ) )).fromStringz,( * __errno_location ( ) )));
 
     return sock_fd;
 }
 
 void send_nlmsg(int sock_fd, nlmsghdr* n)
 {
+ import core.stdc.string : strerror;
  import std.string : fromStringz;
  import std.exception : enforce;
 
@@ -19760,13 +19769,14 @@ void send_nlmsg(int sock_fd, nlmsghdr* n)
     n.nlmsg_seq++;
 
     ssize_t status = sendmsg(sock_fd, &msg, 0);
-    enforce(status >= 0, format!"cannot talk to rtnetlink: %s(%s)"(strerr(( * __errno_location ( ) )).fromStringz,( * __errno_location ( ) )));
+    enforce(status >= 0, format!"cannot talk to rtnetlink: %s(%s)"(strerror(( * __errno_location ( ) )).fromStringz,( * __errno_location ( ) )));
 
     check_response(sock_fd);
 }
 
 int get_netns_fd(int pid)
 {
+ import core.stdc.string : strerror;
  import std.string : fromStringz;
  import std.exception : enforce;
 
@@ -19775,15 +19785,17 @@ int get_netns_fd(int pid)
 
     int fd = open(path, 0);
 
-    enforce(fd >= 0, format!"cannot read netns file %s: %s(%s)"(path,strerr(( * __errno_location ( ) )).fromStringz,( * __errno_location ( ) )));
+    enforce(fd >= 0, format!"cannot read netns file %s: %s(%s)"(path,strerror(( * __errno_location ( ) )).fromStringz,( * __errno_location ( ) )));
 
     return fd;
 }
 
 void ifUp(string interfaceName, string ip, string netMask)
 {
+ import core.stdc.string : strerror;
  import std.string : fromStringz;
  import std.exception : enforce;
+ import core.stdc.string : memcpy;
 
     int sock_fd = createSocket(2, SOCK_DGRAM, IPPROTO_IP);
 
@@ -19801,16 +19813,16 @@ void ifUp(string interfaceName, string ip, string netMask)
     saddr.sin_addr.s_addr = inet_addr(ip.toStringz);
     memcpy((cast(char *)&(ifr.ifr_ifru . ifru_addr)), p, sockaddr.sizeof);
     enforce(!ioctl(sock_fd, SIOCSIFADDR, &ifr),
-        format!"cannot set ip addr %s, %s: %s"(ifname, ip,strerr(( * __errno_location ( ) )).fromStringz,( * __errno_location ( ) )));
+        format!"cannot set ip addr %s, %s: %s"(ifname, ip,strerror(( * __errno_location ( ) )).fromStringz,( * __errno_location ( ) )));
 
     saddr.sin_addr.s_addr = inet_addr(netmask);
     memcpy((cast(char *)&(ifr.ifr_ifru . ifru_addr)), p, sockaddr.sizeof);
     enforce(!ioctl(sock_fd, SIOCSIFNETMASK, &ifr),
-        format!"cannot set netmask for addr %s, %s: %s(%s)"(ifname, netmask,strerr(( * __errno_location ( ) )).fromStringz,( * __errno_location ( ) )));
+        format!"cannot set netmask for addr %s, %s: %s(%s)"(ifname, netmask,strerror(( * __errno_location ( ) )).fromStringz,( * __errno_location ( ) )));
 
     ifr.ifr_ifru . ifru_flags |= IFF_UP | IFF_BROADCAST | IFF_RUNNING | IFF_MULTICAST;
     enforce(!ioctl(sock_fd, SIOCSIFFLAGS, &ifr),
-        format!"cannot set flags for addr %s, %s: %s(%s)"(ifname, ip,strerr(( * __errno_location ( ) )).fromStringz,( * __errno_location ( ) )));
+        format!"cannot set flags for addr %s, %s: %s(%s)"(ifname, ip,strerror(( * __errno_location ( ) )).fromStringz,( * __errno_location ( ) )));
 
     close(sock_fd);
 }
@@ -19849,7 +19861,7 @@ void createVeth(int sock_fd, string interfaceName, string peerName)
 
     rtattr *linfo = addattr_nest(n, maxlen, IFLA_LINKINFO);
 
-    addattr_l(&req.n, sizeof(req), IFLA_INFO_KIND, "veth", 5);
+    addattr_l(&req.n, req.sizeof, IFLA_INFO_KIND, "veth", 5);
 
 
     rtattr *linfodata = addattr_nest(n, maxlen, IFLA_INFO_DATA);
@@ -19920,14 +19932,14 @@ void prepareNetNS(int childPID)
     move_if_to_pid_netns(sock_fd, vpeer, child_netns);
 
 
-    enforce(!setns(child_netns, CLONE_NEWNET),format!"cannot setns for child at pid %d: %s(%s)"(childPID,strerr(( * __errno_location ( ) )).fromStringz,( * __errno_location ( ) )));
+    enforce(!setns(child_netns, CLONE_NEWNET),format!"cannot setns for child at pid %d: %s(%s)"(childPID,strerror(( * __errno_location ( ) )).fromStringz,( * __errno_location ( ) )));
     }
 
 
     ifUp(vpeer, vpeer_addr, netmask);
 
 
-  enforce(!setns(mynetns, CLONE_NEWNET),format!"cannot restore previous netns: %s"(strerr(( * __errno_location ( ) )).fromStringz,( * __errno_location ( ) )));
+  enforce(!setns(mynetns, CLONE_NEWNET),format!"cannot restore previous netns: %s"(strerror(( * __errno_location ( ) )).fromStringz,( * __errno_location ( ) )));
     }
 
     close(sock_fd);
