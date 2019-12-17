@@ -32,5 +32,5 @@ string randomMinor()
 string randomName()
 {
 	import std.format : format;
-	return format!"%s-%"(randomMajor(), randomMinor());
+	return format!"%s-%s"(randomMajor(), randomMinor());
 }
