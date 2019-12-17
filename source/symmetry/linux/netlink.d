@@ -1,6 +1,6 @@
 module symmetry.linux.netlink;
 import symmetry.sildoc;
-version(None):
+//version(None):
 
 version(Posix):
 
@@ -20,6 +20,9 @@ private auto system(string s)
 
 int createSocket(int domain, int type, int protocol)
 {
+	import std.exception : enforce;
+	import core.sys.linux.sys.socket;
+	// we cannot use Phobos std.socket because netlink socket is not in Phobos
 	int sockFD = socket(domain,type,protocol);
 	enforce(sockFD >=0, "cannot open socket");
 	return sockFD;
@@ -36,7 +39,6 @@ void setNamespace(string path, CloneFlag[] cloneFlags)
 	setNamespace_(path,flags);
 }
 
-version(Posix)
 void setNamespace_(string path, int flags)
 {
 	import core.sys.posix.fcntl: O_RDONLY;
@@ -164,6 +166,7 @@ void containNetwork(string namespace, string hostDeviceName, string deviceName, 
 	auto address = addresses[0..addresses.lastIndexOf(".")] ~ ".0";
 	setHostForwarding(hostDeviceName, deviceName, address);
 }
+
 void mounts(ChildConfig config)
 {
 	import std.exception : enforce;
@@ -172,21 +175,24 @@ void mounts(ChildConfig config)
 	import std.format : format;
 	import std.stdio: stderr, writeln, writefln;
 
-	stderr.writeln("=> remounting everyting with MS_PRIVATE...");
+	version(Trace) stderr.writeln("=> remounting everyting with MS_PRIVATE...");
 	fnMount(null,"/",null, [MountType.rec, MountType.private_], null);
-	stderr.writeln("=> making a temp directory and a bind mount there...");
+	version(Trace) stderr.writeln("=> making a temp directory and a bind mount there...");
 	auto mountDir = tempDir();
 	enforce(mountDir != ".", "failed making a temp directory");
 	fnMount(config.mountDir,mountDir,null,[MountType.bind, MountType.private_], null);
 	auto innerMountDir = format!"%s/oldroot"(mountDir);
-	stderr.writeln("done");
-	stderr.writeln("=> pivoting root");
+	version(Trace)
+	{
+		stderr.writeln("done");
+		stderr.writeln("=> pivoting root");
+	}
 	auto oldRootDir = format!"%s/"(innerMountDir.baseName());
 	auto oldRoot = oldRootDir;
 	chdir("/");
 	unmount(oldRoot,[UmountFlag.detach]);
 	rmdir(oldRoot);
-	stderr.writefln("done");
+	version(Trace) stderr.writefln("done");
 }
 
 
