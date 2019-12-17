@@ -35,7 +35,8 @@ enum SHARES = "256";
 enum PIDS = "64";
 enum WEIGHT = "10";
 
-CGroups defaultCGroups = [
+enum CGroups defaultCGroups =
+[
 	"memory":	[		CGroupSetting("memory.limit_in_bytes",MEMORY),
 					CGroupSetting("memory.kmem.limit_in_bytes",MEMORY),
 					addToTasks,
@@ -71,7 +72,7 @@ void setCGroups(in ChildConfig config)
 
 	version(Trace) stderr.writeln("=> setting cgroups...");
 
-	foreach(cGroup; cGroups.byKeyValue)
+	foreach(cGroup; config.cGroups.byKeyValue)
 	{
 		version(Trace) stderr.writefln("%s...", cGroup.key);
 		string dir = format!"/sys/fs/cgroup/%s/%s"(cGroup.key, config.hostname);
@@ -109,7 +110,7 @@ void freeCGroups(in ChildConfig config)
 	import core.sys.posix.fcntl: open, O_WRONLY;
 	import std.file: rmdir;
 	version(Trace) stderr.writeln("=> cleaning cgroups...");
-	foreach(cGroup; cGroups.byKeyValue)
+	foreach(cGroup; config.cGroups.byKeyValue)
 	{
 		int task_fd = 0;
 		string dir = format!"/sys/fs/cgroup/%s/%s"(cGroup.key,config.hostname);
