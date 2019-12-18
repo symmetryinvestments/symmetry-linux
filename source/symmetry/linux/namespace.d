@@ -40,10 +40,16 @@ void createNetworkNamespace(string name)
 {
 	import std.format : format;
 	import std.exception : enforce;
-	auto ret = system(format!"ip netns del %s"(name));
-	//enforce(ret.status ==0, ret.output);
-	ret = system(format!"ip netns add %s"(name));
+	deleteNetworkNamespace(name);
+	auto ret = system(format!"ip netns add %s"(name));
 	enforce(ret.status ==0, ret.output);
+}
+
+void deleteNetworkNamespace(string name)
+{
+	import std.format : format;
+	import std.exception : enforce;
+	auto ret = system(format!"ip netns del %s"(name));
 }
 
 void createVethPair(string name, string peerName)
@@ -52,6 +58,13 @@ void createVethPair(string name, string peerName)
 	import std.exception : enforce;
 	auto ret = system(format!"ip link add %s type veth peer name %s"(name, peerName));
 	enforce(ret.status ==0, ret.output);
+}
+
+void deleteVethPair(string name)
+{
+	import std.format : format;
+	import std.exception : enforce;
+	auto ret = system(format!"ip link delete %s"(name));
 }
 
 void addVethPairToNamespace(string peerName, string namespace)
@@ -104,35 +117,79 @@ void addDefaultRoutePeer(string nameSpace, string defaultGateway)
 	enforce(ret.status ==0, ret.output);
 }
 
+void setHostForwarding(bool enableForwarding = true)
+{
+	import std.file : write;
+	// Enable IP-forwarding.
+	write("/proc/sys/net/ipv4/ip_forward",enableForwarding ? "1\n" : "0\n");
+}
+
+
+void allowForwarding(string hostDeviceName, string clientDeviceName)
+{
+	import std.exception : enforce;
+	import std.format : format;
+
+	// Allow forwarding between eth0 and v-eth1.
+	auto ret = system(format!"iptables -A FORWARD -i %s -o %s -j ACCEPT"(hostDeviceName, clientDeviceName));
+	enforce(ret.status ==0, ret.output);
+	ret = system(format!"iptables -A FORWARD -o %s -i %s -j ACCEPT"(hostDeviceName,clientDeviceName)); 
+	enforce(ret.status ==0, ret.output);
+}
+
+void flushNatRules()
+{
+	import std.exception : enforce;
+	import std.file : write;
+	import std.format : format;
+	// Flush nat rules.
+	auto ret = system("iptables -t nat -F");
+	enforce(ret.status ==0, ret.output);
+}
+
+void enableMasquerading(string peerAddress, string interfaceName)
+{
+	import std.exception : enforce;
+	import std.file : write;
+	import std.format : format;
+	// Enable masquerading of 10.200.1.0.
+	auto ret = system(format!"iptables -t nat -A POSTROUTING -s %s/255.255.255.0 -o %s -j MASQUERADE"(peerAddress,interfaceName));
+	enforce(ret.status ==0, ret.output);
+}
+
+void setPolicyDropDefault()
+{
+	import std.exception : enforce;
+	import std.file : write;
+	import std.format : format;
+	// set policy DROP by default
+	auto ret = system("iptables -P FORWARD DROP");
+	enforce(ret.status ==0, ret.output);
+}
+
+void flushForwardRules()
+{
+	import std.exception : enforce;
+	import std.file : write;
+	import std.format : format;
+	// set policy DROP by default
+	auto ret = system("iptables -F FORWARD");
+	enforce(ret.status ==0, ret.output);
+}
+
+@SILdoc("Share internet access between host and namespace")
 void setHostForwarding(string hostDeviceName, string clientDeviceName, string address)
 {
 	import std.exception : enforce;
 	import std.file : write;
 	import std.format : format;
-	// Share internet access between host and NS.
 
-	// Enable IP-forwarding.
-	write("/proc/sys/net/ipv4/ip_forward","1\n");
-
-	// Flush forward rules, policy DROP by default.
-	auto ret = system("iptables -P FORWARD DROP");
-	enforce(ret.status ==0, ret.output);
-	ret = system("iptables -F FORWARD");
-	enforce(ret.status ==0, ret.output);
-
-	// Flush nat rules.
-	ret = system("iptables -t nat -F");
-	enforce(ret.status ==0, ret.output);
-
-	// Enable masquerading of 10.200.1.0.
-	ret = system(format!"iptables -t nat -A POSTROUTING -s %s/255.255.255.0 -o %s -j MASQUERADE"(address,hostDeviceName));
-	enforce(ret.status ==0, ret.output);
-
-	// Allow forwarding between eth0 and v-eth1.
-	ret = system(format!"iptables -A FORWARD -i %s -o %s -j ACCEPT"(hostDeviceName, clientDeviceName));
-	enforce(ret.status ==0, ret.output);
-	ret = system(format!"iptables -A FORWARD -o %s -i %s -j ACCEPT"(hostDeviceName,clientDeviceName)); 
-	enforce(ret.status ==0, ret.output);
+	setHostForwarding(true);
+	setPolicyDropDefault();
+	flushForwardRules();
+	flushNatRules();
+	enableMasquerading(address,hostDeviceName);
+	allowForwarding(hostDeviceName,clientDeviceName);
 }
 
 
@@ -154,6 +211,7 @@ void containNetwork(string namespace, string hostDeviceName, string deviceName, 
 	auto address = addresses[0..addresses.lastIndexOf(".")] ~ ".0";
 	setHostForwarding(hostDeviceName, deviceName, address);
 }
+
 void mounts(ChildConfig config)
 {
 	import std.exception : enforce;
