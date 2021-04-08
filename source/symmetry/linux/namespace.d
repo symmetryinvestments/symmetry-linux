@@ -97,7 +97,7 @@ string showAddresses(string nameSpace = null)
 {
 	import std.exception : enforce;
 	import std.format : format;
-	auto ns = (namespace.length > 0) ? "-n " ~ namespace ~ " ": "";
+	auto ns = (nameSpace.length > 0) ? "-n " ~ nameSpace ~ " ": "";
 	auto ret = system(format!"ip -j %saddr show"(ns));
 	enforce(ret.status ==0, ret.output);
 	return ret.output;
@@ -117,7 +117,7 @@ void setLinkUp(string deviceName, string nameSpace = null)
 {
 	import std.exception : enforce;
 	import std.format : format;
-	auto ns = (namespace.length > 0) ? "-n " ~ namespace ~ " ": "";
+	auto ns = (nameSpace.length > 0) ? "-n " ~ nameSpace ~ " ": "";
 	auto ret = system(format!"ip %slink set %s up"(ns,deviceName));
 	enforce(ret.status ==0, ret.output);
 }
@@ -127,7 +127,7 @@ string showLink(string nameSpace = null)
 {
 	import std.exception : enforce;
 	import std.format : format;
-	auto ns = (namespace.length > 0) ? "-n " ~ namespace ~ " ": "";
+	auto ns = (nameSpace.length > 0) ? "-n " ~ nameSpace ~ " ": "";
 	auto ret = system(format!"ip -j %slink show"(ns));
 	enforce(ret.status ==0, ret.output);
 	return ret.output;
@@ -138,7 +138,7 @@ string showRoute(string nameSpace = null)
 {
 	import std.exception : enforce;
 	import std.format : format;
-	auto ns = (namespace.length > 0) ? "-n " ~ namespace ~ " ": "";
+	auto ns = (nameSpace.length > 0) ? "-n " ~ nameSpace ~ " ": "";
 	auto ret = system(format!"ip -j %sroute show"(ns));
 	enforce(ret.status ==0, ret.output);
 	return ret.output;
@@ -149,7 +149,7 @@ string getRoute(string destinationIP, string nameSpace = null)
 {
 	import std.exception : enforce;
 	import std.format : format;
-	auto ns = (namespace.length > 0) ? "-n " ~ namespace ~ " ": "";
+	auto ns = (nameSpace.length > 0) ? "-n " ~ nameSpace ~ " ": "";
 	auto ret = system(format!"ip -j %sroute get %s"(ns,destinationIP));
 	enforce(ret.status ==0, ret.output);
 	return ret.output;
@@ -160,7 +160,7 @@ string addRoute(string route, string device, string nameSpace = null)
 {
 	import std.exception : enforce;
 	import std.format : format;
-	auto ns = (namespace.length > 0) ? "-n " ~ namespace ~ " ": "";
+	auto ns = (nameSpace.length > 0) ? "-n " ~ nameSpace ~ " ": "";
 	auto ret = system(format!"ip -j %sroute add %s dev %s"(ns,route,device));
 	enforce(ret.status ==0, ret.output);
 	return ret.output;
