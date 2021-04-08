@@ -75,11 +75,12 @@ void addVethPairToNamespace(string peerName, string namespace)
 	enforce(ret.status ==0, ret.output);
 }
 
-void addAddressesIP4(string addresses, string deviceName)
+void addAddressesIP4(string addresses, string deviceName, string namespace = null)
 {
 	import std.exception : enforce;
 	import std.format : format;
-	auto ret = system(format!"ip addr add %s dev %s"(addresses,deviceName));
+	auto ns = (namespace.length > 0) ? "-n " ~ namespace ~ " ": "";
+	auto ret = system(format!"ip %saddr add %s dev %s"(ns,addresses,deviceName));
 	enforce(ret.status ==0, ret.output);
 }
 
@@ -91,6 +92,17 @@ void addAddressesIP4Peer(string nameSpace, string addresses, string deviceName)
 	enforce(ret.status ==0, ret.output);
 }
 
+// return addresses in JSON format
+string showAddresses(string nameSpace = null)
+{
+	import std.exception : enforce;
+	import std.format : format;
+	auto ns = (namespace.length > 0) ? "-n " ~ namespace ~ " ": "";
+	auto ret = system(format!"ip -j %saddr show"(ns));
+	enforce(ret.status ==0, ret.output);
+	return ret.output;
+}
+	
 void setLinkUpPeer(string nameSpace, string deviceName)
 {
 	import std.exception : enforce;
@@ -101,12 +113,66 @@ void setLinkUpPeer(string nameSpace, string deviceName)
 	enforce(ret.status ==0, ret.output);
 }
 
-void setLinkUp(string deviceName)
+void setLinkUp(string deviceName, string nameSpace = null)
 {
 	import std.exception : enforce;
 	import std.format : format;
-	auto ret = system(format!"ip link set %s up"(deviceName));
+	auto ns = (namespace.length > 0) ? "-n " ~ namespace ~ " ": "";
+	auto ret = system(format!"ip %slink set %s up"(ns,deviceName));
 	enforce(ret.status ==0, ret.output);
+}
+
+// return link info in JSON format
+string showLink(string nameSpace = null)
+{
+	import std.exception : enforce;
+	import std.format : format;
+	auto ns = (namespace.length > 0) ? "-n " ~ namespace ~ " ": "";
+	auto ret = system(format!"ip -j %slink show"(ns));
+	enforce(ret.status ==0, ret.output);
+	return ret.output;
+}
+
+// return route info in JSON format
+string showRoute(string nameSpace = null)
+{
+	import std.exception : enforce;
+	import std.format : format;
+	auto ns = (namespace.length > 0) ? "-n " ~ namespace ~ " ": "";
+	auto ret = system(format!"ip -j %sroute show"(ns));
+	enforce(ret.status ==0, ret.output);
+	return ret.output;
+}
+
+// return route get info in JSON format
+string getRoute(string destinationIP, string nameSpace = null)
+{
+	import std.exception : enforce;
+	import std.format : format;
+	auto ns = (namespace.length > 0) ? "-n " ~ namespace ~ " ": "";
+	auto ret = system(format!"ip -j %sroute get %s"(ns,destinationIP));
+	enforce(ret.status ==0, ret.output);
+	return ret.output;
+}
+
+// return route get info in JSON format
+string addRoute(string route, string device, string nameSpace = null)
+{
+	import std.exception : enforce;
+	import std.format : format;
+	auto ns = (namespace.length > 0) ? "-n " ~ namespace ~ " ": "";
+	auto ret = system(format!"ip -j %sroute add %s dev %s"(ns,route,device));
+	enforce(ret.status ==0, ret.output);
+	return ret.output;
+}
+
+string executeNamespace(string namespace, string cmd)
+{
+	import std.exception : enforce;
+	import std.format : format;
+	auto ret = system(format!"ip netns exec %s %s"(nameSpace,cmd));
+	enforce(ret.status ==0, ret.output);
+	return ret.output;
 }
 
 void addDefaultRoutePeer(string nameSpace, string defaultGateway)
