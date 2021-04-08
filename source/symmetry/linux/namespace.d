@@ -166,7 +166,7 @@ string addRoute(string route, string device, string nameSpace = null)
 	return ret.output;
 }
 
-string executeNamespace(string namespace, string cmd)
+string executeNamespace(string nameSpace, string cmd)
 {
 	import std.exception : enforce;
 	import std.format : format;
