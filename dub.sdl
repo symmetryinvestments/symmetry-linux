@@ -9,7 +9,7 @@ configuration "default" {
 }
 
 configuration "pivot-root" {
-	dependency "syscall-d" version="~>0.4.0" platform="posix"
+	dependency "syscall-d" version="~>0.5.0" platform="posix"
 	versions "PivotRoot" platform="posix"
 }
 
