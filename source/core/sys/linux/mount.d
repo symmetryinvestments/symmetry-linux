@@ -1,5 +1,7 @@
 module core.sys.linux.mount;
+
 import std.conv : hexString;
+import symmetry.sildoc;
 
 /* Header file for mounting/unmount Linux filesystems.
    Copyright (C) 1996-2019 Free Software Foundation, Inc.
